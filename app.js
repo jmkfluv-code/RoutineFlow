@@ -1,52 +1,14 @@
+// --- Supabase Configuration ---
+const SUPABASE_URL = 'https://jzwvgdhyxssuthssiezl.supabase.co';
+const SUPABASE_KEY = '여기에_여러분의_ANON_PUBLIC_KEY를_입력하세요'; 
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // --- State Management ---
-const state = {
+let state = {
+    user: null,
     currentView: 'home',
-    user: {
-        name: '피리소년',
-        bio: '꿈을 향해 한 걸음씩 🚶‍♂️ | 루틴으로 만드는 매일의 변화',
-        successRate: 85,
-        postsCount: 42,
-        followers: '1.2k',
-        following: 384
-    },
-    routines: [
-        { id: 1, name: '아침 조깅', time: '07:00', completed: true, category: '건강' },
-        { id: 2, name: '경제 뉴스 읽기', time: '08:30', completed: true, category: '자기개발' },
-        { id: 3, name: '코딩 공부', time: '20:00', completed: false, category: '커리어' },
-        { id: 4, name: '명상하기', time: '22:00', completed: false, category: '마음챙김' }
-    ],
-    posts: [
-        {
-            id: 1,
-            author: '지우',
-            avatar: '🐶',
-            image: 'morning_run.png',
-            routine: '아침 조깅',
-            likes: 24,
-            caption: '오늘 공기 너무 맑네요! 루틴 성공 🏃‍♀️',
-            comments: 3
-        },
-        {
-            id: 2,
-            author: '민수',
-            avatar: '🎮',
-            image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop',
-            routine: '코딩 공부',
-            likes: 18,
-            caption: 'React 마스터 가즈아..!! 🔥',
-            comments: 5
-        },
-        {
-            id: 3,
-            author: '소연',
-            avatar: '🌸',
-            image: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&auto=format&fit=crop',
-            routine: '명상하기',
-            likes: 31,
-            caption: '하루의 끝은 항상 차분하게 🧘‍♀️',
-            comments: 2
-        }
-    ]
+    routines: [],
+    posts: []
 };
 
 // --- Selectors ---
@@ -54,20 +16,95 @@ const viewTitle = document.getElementById('view-title');
 const viewContainer = document.getElementById('view-container');
 const navItems = document.querySelectorAll('.nav-links li, .mobile-nav-item');
 const authModal = document.getElementById('auth-modal');
-const closeModalBtn = document.querySelector('.close-modal');
+const loginModal = document.getElementById('login-modal');
+const uploadBox = document.getElementById('upload-box');
+const fileInput = document.getElementById('auth-file-input');
 
 // --- Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-    renderView('home');
+document.addEventListener('DOMContentLoaded', async () => {
+    checkSession();
     setupEventListeners();
 });
+
+// --- Auth Functions ---
+async function checkSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        state.user = session.user;
+        loginModal.classList.add('hidden');
+        loadAppData();
+    } else {
+        loginModal.classList.remove('hidden');
+    }
+}
+
+async function handleSignUp() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    if (!email || !password) return alert('이메일과 비밀번호를 입력해주세요.');
+
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    
+    if (error) alert('회원가입 실패: ' + error.message);
+    else {
+        alert('회원가입 성공! 이메일을 확인하거나 로그인해 주세요.');
+        await supabase.from('profiles').insert([{ 
+            id: data.user.id, 
+            username: email.split('@')[0], 
+            full_name: '사용자',
+            bio: '안녕하세요! RoutineFlow입니다.'
+        }]);
+    }
+}
+
+async function handleLogin() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) alert('로그인 실패: ' + error.message);
+    else {
+        state.user = data.user;
+        loginModal.classList.add('hidden');
+        loadAppData();
+    }
+}
+
+// --- Data Loading ---
+async function loadAppData() {
+    await Promise.all([fetchRoutines(), fetchPosts()]);
+    renderView('home');
+}
+
+async function fetchRoutines() {
+    const { data, error } = await supabase
+        .from('routines')
+        .select('*')
+        .eq('user_id', state.user.id)
+        .order('time', { ascending: true });
+    
+    if (!error) state.routines = data;
+}
+
+async function fetchPosts() {
+    const { data, error } = await supabase
+        .from('posts')
+        .select(`
+            *,
+            profiles (username, avatar_url)
+        `)
+        .order('created_at', { ascending: false });
+    
+    if (!error) state.posts = data;
+}
 
 // --- View Rendering ---
 function renderView(view) {
     state.currentView = view;
     viewContainer.innerHTML = '';
     
-    // Update active state in nav
     navItems.forEach(item => {
         if (item.dataset.view === view) item.classList.add('active');
         else item.classList.remove('active');
@@ -93,20 +130,25 @@ function renderHome() {
     const grid = document.createElement('div');
     grid.className = 'feed-grid';
     
+    if (state.posts.length === 0) {
+        grid.innerHTML = '<p style="text-align:center; padding:2rem; color:var(--text-dim);">아직 게시글이 없습니다. 첫 인증샷을 올려보세요!</p>';
+    }
+
     state.posts.forEach(post => {
         const card = `
             <div class="feed-card">
                 <div class="card-header">
-                    <div class="avatar-small" style="background: #eee; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">${post.avatar}</div>
-                    <span style="font-weight: 600;">${post.author}</span>
+                    <div class="avatar-small" style="background: #eee; display: flex; align-items: center; justify-content: center; font-size: 1rem; color:black;">
+                        ${post.profiles?.avatar_url || '👤'}
+                    </div>
+                    <span style="font-weight: 600;">${post.profiles?.username || '알 수 없는 사용자'}</span>
                 </div>
-                <img src="${post.image}" class="card-img" alt="Post proof">
+                <img src="${post.image_url || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085'}" class="card-img" alt="Post proof">
                 <div class="card-content">
-                    <span class="card-routine-tag"># ${post.routine}</span>
+                    <span class="card-routine-tag"># ${post.routine_name}</span>
                     <p style="margin-bottom: 0.5rem;">${post.caption}</p>
                     <div class="card-actions">
-                        <span>❤️ ${post.likes}</span>
-                        <span>💬 ${post.comments}</span>
+                        <span>❤️ ${post.likes_count}</span>
                     </div>
                 </div>
             </div>
@@ -123,9 +165,18 @@ function renderRoutines() {
     list.style.flexDirection = 'column';
     list.style.gap = '1rem';
     
+    if (state.routines.length === 0) {
+        list.innerHTML = `
+            <div style="text-align:center; padding:3rem; background:var(--bg-card); border-radius:20px;">
+                <p style="margin-bottom:1.5rem; color:var(--text-dim);">설정된 루틴이 없습니다.</p>
+                <button class="btn btn-primary" onclick="addNewRoutine()">새 루틴 만들기</button>
+            </div>
+        `;
+    }
+
     state.routines.forEach(routine => {
         const item = document.createElement('div');
-        item.className = 'feed-card'; // Reuse card style for consistency
+        item.className = 'feed-card';
         item.style.padding = '1.5rem';
         item.style.display = 'flex';
         item.style.justifyContent = 'space-between';
@@ -138,7 +189,7 @@ function renderRoutines() {
                 <span class="card-routine-tag">${routine.category}</span>
             </div>
             <div>
-                ${routine.completed 
+                ${routine.is_completed 
                     ? '<span style="color: var(--secondary); font-weight: 800;">✅ 완료</span>' 
                     : `<button class="btn btn-primary auth-btn" data-id="${routine.id}">인증하기</button>`
                 }
@@ -149,7 +200,6 @@ function renderRoutines() {
     
     viewContainer.appendChild(list);
 
-    // Re-attach listeners for dynamically created buttons
     document.querySelectorAll('.auth-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const routineId = e.target.dataset.id;
@@ -159,111 +209,85 @@ function renderRoutines() {
     });
 }
 
-function renderProfile() {
-    const profile = document.createElement('div');
-    
-    // Circular gauge calculation
-    const radius = 52;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (state.user.successRate / 100) * circumference;
+async function addNewRoutine() {
+    const name = prompt('루틴 이름을 입력하세요 (예: 아침 조깅)');
+    const time = prompt('시간을 입력하세요 (예: 07:00)');
+    if (!name || !time) return;
 
+    const { error } = await supabase.from('routines').insert([{
+        user_id: state.user.id,
+        name,
+        time,
+        category: '일반'
+    }]);
+
+    if (error) alert('저장 실패: ' + error.message);
+    else loadAppData();
+}
+
+async function renderProfile() {
+    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', state.user.id).single();
+    
+    const profile = document.createElement('div');
     profile.innerHTML = `
         <div class="profile-header">
             <div class="success-gauge">
-                <svg class="progress-ring" width="120" height="120">
-                    <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="transparent" r="${radius}" cx="60" cy="60"/>
-                    <circle class="progress-ring__circle" stroke="var(--primary)" stroke-width="8" stroke-dasharray="${circumference} ${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" fill="transparent" r="${radius}" cx="60" cy="60"/>
-                </svg>
-                <div class="gauge-value">${state.user.successRate}%</div>
+                <div class="gauge-value">85%</div>
             </div>
             <div class="profile-info">
-                <h2>${state.user.name}</h2>
-                <p style="color: var(--text-dim); margin-bottom: 1rem;">${state.user.bio}</p>
+                <h2>${profileData?.username || '사용자'}</h2>
+                <p style="color: var(--text-dim); margin-bottom: 1rem;">${profileData?.bio || ''}</p>
                 <div class="profile-stats">
-                    <div class="stat-item">
-                        <span class="stat-value">${state.user.postsCount}</span>
-                        <span class="stat-label">인증 게시글</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value">${state.user.followers}</span>
-                        <span class="stat-label">팔로워</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value">${state.user.following}</span>
-                        <span class="stat-label">팔로잉</span>
-                    </div>
+                    <button class="btn btn-secondary" onclick="supabase.auth.signOut().then(() => location.reload())">로그아웃</button>
                 </div>
             </div>
         </div>
-        
         <h3 style="margin-bottom: 1.5rem;">내 인증 히스토리</h3>
         <div class="feed-grid" id="profile-posts"></div>
     `;
     
     viewContainer.appendChild(profile);
-    
-    // Add some mock history to profile
-    const profilePosts = document.getElementById('profile-posts');
-    state.posts.slice(0, 2).forEach(post => {
-        const card = `
-            <div class="feed-card">
-                <img src="${post.image}" class="card-img" alt="Post proof">
-                <div class="card-content">
-                    <span class="card-routine-tag"># ${post.routine}</span>
-                </div>
-            </div>
-        `;
-        profilePosts.innerHTML += card;
-    });
 }
 
 // --- Event Listeners ---
 function setupEventListeners() {
+    document.getElementById('btn-login').onclick = handleLogin;
+    document.getElementById('btn-signup').onclick = handleSignUp;
+
     navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            renderView(item.dataset.view);
-        });
+        item.addEventListener('click', () => renderView(item.dataset.view));
     });
 
-    closeModalBtn.addEventListener('click', () => {
-        authModal.classList.add('hidden');
-    });
+    document.querySelector('.close-modal').onclick = () => authModal.classList.add('hidden');
+    
+    uploadBox.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+        if(e.target.files.length > 0) uploadBox.innerText = '📸 파일 선택됨: ' + e.target.files[0].name;
+    };
 
-    document.getElementById('submit-auth').addEventListener('click', () => {
-        handleAuthSubmit();
-    });
+    document.getElementById('submit-auth').onclick = handleAuthSubmit;
 }
 
-// --- Modal Logic ---
 function openAuthModal(routine) {
     document.getElementById('auth-routine-name').innerText = routine.name;
     authModal.dataset.activeRoutineId = routine.id;
     authModal.classList.remove('hidden');
 }
 
-function handleAuthSubmit() {
+async function handleAuthSubmit() {
     const routineId = authModal.dataset.activeRoutineId;
     const routine = state.routines.find(r => r.id == routineId);
     
-    if (routine) {
-        routine.completed = true;
-        
-        // Add new post to state
-        state.posts.unshift({
-            id: Date.now(),
-            author: state.user.name,
-            avatar: '🤴',
-            image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop',
-            routine: routine.name,
-            likes: 0,
-            caption: `${routine.name} 미션 완료! 오늘의 성공을 공유합니다.`,
-            comments: 0
-        });
+    await supabase.from('routines').update({ is_completed: true }).eq('id', routineId);
+    
+    await supabase.from('posts').insert([{
+        user_id: state.user.id,
+        routine_name: routine.name,
+        caption: `${routine.name} 미션 완료!`,
+        image_url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085'
+    }]);
 
-        authModal.classList.add('hidden');
-        renderView('routines'); // Go back to routine list to see update
-        
-        // Success Toast simulation
-        alert('🎉 인증이 성공적으로 완료되었습니다! 피드에 공유되었습니다.');
-    }
+    authModal.classList.add('hidden');
+    loadAppData();
+    alert('인증이 완료되었습니다!');
 }
