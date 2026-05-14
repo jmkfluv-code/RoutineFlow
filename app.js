@@ -1,6 +1,6 @@
 // --- Supabase Configuration ---
 const SUPABASE_URL = 'https://jzwvgdhyxssuthssiezl.supabase.co';
-const SUPABASE_KEY = '여기에_여러분의_ANON_PUBLIC_KEY를_입력하세요'; 
+const SUPABASE_KEY = 'sb_publishable_zx__Vl_nDAva5ObMPD_UTQ_1P--mEhY'; 
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- State Management ---
