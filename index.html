@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoutineFlow | Track your rhythm, share your flow</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">RF</span>
+                <span class="logo-text">RoutineFlow</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-view="home">
+                    <span class="icon">🏠</span>
+                    <span class="label">홈 피드</span>
+                </li>
+                <li data-view="routines">
+                    <span class="icon">📅</span>
+                    <span class="label">내 루틴</span>
+                </li>
+                <li data-view="profile">
+                    <span class="icon">👤</span>
+                    <span class="label">프로필</span>
+                </li>
+            </ul>
+            <div class="nav-footer">
+                <button id="add-routine-btn" class="btn btn-primary">+ 루틴 추가</button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+            <header class="top-bar">
+                <h1 id="view-title">홈 피드</h1>
+                <div class="user-actions">
+                    <div class="notification-bell">🔔<span class="badge">2</span></div>
+                    <div class="avatar-small"></div>
+                </div>
+            </header>
+
+            <div id="view-container">
+                <!-- Dynamic Content Loads Here -->
+            </div>
+        </main>
+
+        <!-- Mobile Bottom Nav -->
+        <nav class="mobile-nav">
+            <div class="mobile-nav-item active" data-view="home">🏠</div>
+            <div class="mobile-nav-item" data-view="routines">📅</div>
+            <div class="mobile-nav-item" id="mobile-add-btn">➕</div>
+            <div class="mobile-nav-item" data-view="profile">👤</div>
+        </nav>
+
+        <!-- Authentication Modal -->
+        <div id="auth-modal" class="modal hidden">
+            <div class="modal-content glass">
+                <h2>오늘의 루틴 인증</h2>
+                <p id="auth-routine-name">Morning Workout</p>
+                <div class="upload-area">
+                    <div class="upload-placeholder">
+                        📷 사진 또는 영상 선택
+                    </div>
+                    <input type="file" id="auth-file-input" hidden>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary close-modal">취소</button>
+                    <button class="btn btn-primary" id="submit-auth">인증 완료</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
