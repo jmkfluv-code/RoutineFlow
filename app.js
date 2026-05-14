@@ -1,7 +1,9 @@
 // --- Supabase Configuration ---
 const SUPABASE_URL = 'https://jzwvgdhyxssuthssiezl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_zx__Vl_nDAva5ObMPD_UTQ_1P--mEhY'; 
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 라이브러리 충돌 방지를 위해 변수명을 _supabase로 설정
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- State Management ---
 let state = {
@@ -22,13 +24,14 @@ const fileInput = document.getElementById('auth-file-input');
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('App Initializing...');
     checkSession();
     setupEventListeners();
 });
 
 // --- Auth Functions ---
 async function checkSession() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await _supabase.auth.getSession();
     if (session) {
         state.user = session.user;
         loginModal.classList.add('hidden');
@@ -42,19 +45,23 @@ async function handleSignUp() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     
+    console.log('Sign up attempt:', email);
     if (!email || !password) return alert('이메일과 비밀번호를 입력해주세요.');
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await _supabase.auth.signUp({ email, password });
     
-    if (error) alert('회원가입 실패: ' + error.message);
-    else {
-        alert('회원가입 성공! 이메일을 확인하거나 로그인해 주세요.');
-        await supabase.from('profiles').insert([{ 
-            id: data.user.id, 
-            username: email.split('@')[0], 
-            full_name: '사용자',
-            bio: '안녕하세요! RoutineFlow입니다.'
-        }]);
+    if (error) {
+        alert('회원가입 실패: ' + error.message);
+    } else {
+        alert('회원가입 성공! 이메일 인증이 설정되어 있다면 이메일을 확인해 주시고, 아니면 바로 로그인해 보세요.');
+        if (data.user) {
+            await _supabase.from('profiles').insert([{ 
+                id: data.user.id, 
+                username: email.split('@')[0], 
+                full_name: '사용자',
+                bio: '안녕하세요! RoutineFlow입니다.'
+            }]);
+        }
     }
 }
 
@@ -62,7 +69,7 @@ async function handleLogin() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
     
     if (error) alert('로그인 실패: ' + error.message);
     else {
@@ -79,7 +86,7 @@ async function loadAppData() {
 }
 
 async function fetchRoutines() {
-    const { data, error } = await supabase
+    const { data, error } = await _supabase
         .from('routines')
         .select('*')
         .eq('user_id', state.user.id)
@@ -89,7 +96,7 @@ async function fetchRoutines() {
 }
 
 async function fetchPosts() {
-    const { data, error } = await supabase
+    const { data, error } = await _supabase
         .from('posts')
         .select(`
             *,
@@ -139,9 +146,9 @@ function renderHome() {
             <div class="feed-card">
                 <div class="card-header">
                     <div class="avatar-small" style="background: #eee; display: flex; align-items: center; justify-content: center; font-size: 1rem; color:black;">
-                        ${post.profiles?.avatar_url || '👤'}
+                        👤
                     </div>
-                    <span style="font-weight: 600;">${post.profiles?.username || '알 수 없는 사용자'}</span>
+                    <span style="font-weight: 600;">${post.profiles?.username || '사용자'}</span>
                 </div>
                 <img src="${post.image_url || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085'}" class="card-img" alt="Post proof">
                 <div class="card-content">
@@ -214,7 +221,7 @@ async function addNewRoutine() {
     const time = prompt('시간을 입력하세요 (예: 07:00)');
     if (!name || !time) return;
 
-    const { error } = await supabase.from('routines').insert([{
+    const { error } = await _supabase.from('routines').insert([{
         user_id: state.user.id,
         name,
         time,
@@ -226,7 +233,7 @@ async function addNewRoutine() {
 }
 
 async function renderProfile() {
-    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', state.user.id).single();
+    const { data: profileData } = await _supabase.from('profiles').select('*').eq('id', state.user.id).single();
     
     const profile = document.createElement('div');
     profile.innerHTML = `
@@ -238,7 +245,7 @@ async function renderProfile() {
                 <h2>${profileData?.username || '사용자'}</h2>
                 <p style="color: var(--text-dim); margin-bottom: 1rem;">${profileData?.bio || ''}</p>
                 <div class="profile-stats">
-                    <button class="btn btn-secondary" onclick="supabase.auth.signOut().then(() => location.reload())">로그아웃</button>
+                    <button class="btn btn-secondary" onclick="_supabase.auth.signOut().then(() => location.reload())">로그아웃</button>
                 </div>
             </div>
         </div>
@@ -251,21 +258,26 @@ async function renderProfile() {
 
 // --- Event Listeners ---
 function setupEventListeners() {
-    document.getElementById('btn-login').onclick = handleLogin;
-    document.getElementById('btn-signup').onclick = handleSignUp;
+    const loginBtn = document.getElementById('btn-login');
+    const signupBtn = document.getElementById('btn-signup');
+
+    if (loginBtn) loginBtn.onclick = handleLogin;
+    if (signupBtn) signupBtn.onclick = handleSignUp;
 
     navItems.forEach(item => {
         item.addEventListener('click', () => renderView(item.dataset.view));
     });
 
-    document.querySelector('.close-modal').onclick = () => authModal.classList.add('hidden');
+    const closeBtn = document.querySelector('.close-modal');
+    if (closeBtn) closeBtn.onclick = () => authModal.classList.add('hidden');
     
-    uploadBox.onclick = () => fileInput.click();
-    fileInput.onchange = (e) => {
+    if (uploadBox) uploadBox.onclick = () => fileInput.click();
+    if (fileInput) fileInput.onchange = (e) => {
         if(e.target.files.length > 0) uploadBox.innerText = '📸 파일 선택됨: ' + e.target.files[0].name;
     };
 
-    document.getElementById('submit-auth').onclick = handleAuthSubmit;
+    const submitAuthBtn = document.getElementById('submit-auth');
+    if (submitAuthBtn) submitAuthBtn.onclick = handleAuthSubmit;
 }
 
 function openAuthModal(routine) {
@@ -278,9 +290,9 @@ async function handleAuthSubmit() {
     const routineId = authModal.dataset.activeRoutineId;
     const routine = state.routines.find(r => r.id == routineId);
     
-    await supabase.from('routines').update({ is_completed: true }).eq('id', routineId);
+    await _supabase.from('routines').update({ is_completed: true }).eq('id', routineId);
     
-    await supabase.from('posts').insert([{
+    await _supabase.from('posts').insert([{
         user_id: state.user.id,
         routine_name: routine.name,
         caption: `${routine.name} 미션 완료!`,
